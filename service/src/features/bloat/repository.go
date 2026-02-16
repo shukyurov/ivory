@@ -48,16 +48,20 @@ func (r *Repository) GetOpenFile(uuid uuid.UUID) (*os.File, error) {
 	return r.file.OpenByName(uuid.String())
 }
 
-func (r *Repository) Create(credentialId uuid.UUID, cluster string, args []string) (*Bloat, error) {
+func (r *Repository) Create(credentialId *uuid.UUID, cluster string, args []string) (*Bloat, error) {
 	jobUuid := uuid.New()
 	logsPath, errCreate := r.file.CreateByName(jobUuid.String())
 	if errCreate != nil {
 		return nil, errCreate
 	}
+	credential := uuid.Nil
+	if credentialId != nil {
+		credential = *credentialId
+	}
 
 	compactTableModel := Bloat{
 		Uuid:         jobUuid,
-		CredentialId: credentialId,
+		CredentialId: credential,
 		Cluster:      cluster,
 		Status:       PENDING,
 		Command:      "pgcompacttable " + strings.Join(args, " "),

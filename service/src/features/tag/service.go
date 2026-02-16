@@ -4,12 +4,20 @@ import (
 	"strings"
 )
 
-type Service struct {
-	tagRepository *Repository
+type TagsProvider interface {
+	ListTags() ([]string, error)
 }
 
-func NewService(tagRepository *Repository) *Service {
-	return &Service{tagRepository: tagRepository}
+type Service struct {
+	tagRepository *Repository
+	tagsProvider  TagsProvider
+}
+
+func NewService(tagRepository *Repository, tagsProvider TagsProvider) *Service {
+	return &Service{
+		tagRepository: tagRepository,
+		tagsProvider:  tagsProvider,
+	}
 }
 
 func (s *Service) Get(tag string) ([]string, error) {
@@ -21,6 +29,12 @@ func (s *Service) GetMap() (map[string][]string, error) {
 }
 
 func (s *Service) List() ([]string, error) {
+	if s.tagsProvider != nil {
+		tags, err := s.tagsProvider.ListTags()
+		if err == nil {
+			return tags, nil
+		}
+	}
 	return s.tagRepository.List()
 }
 

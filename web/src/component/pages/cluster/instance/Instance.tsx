@@ -33,13 +33,13 @@ export function Instance() {
         if (!activeInstanceName || !activeCluster) return <AlertCentered text={"Please, select an instance to see the information!"}/>
         if (!activeInstance) return <AlertCentered text={"There is not enough information about the instance!"} severity={"warning"}/>
 
-        const connection = getConnectionRequest(activeCluster.cluster, activeInstance.database)
+        const connection = getConnectionRequest(activeCluster.cluster, activeInstance.database, activeInstance.sidecar)
 
         return (
             <Box sx={SX.content}>
                 <InstanceInfo instance={activeInstance} tab={instance.body} onTab={setInstanceBody} connection={connection}/>
                 <Divider orientation={"vertical"} flexItem/>
-                <InstanceMain tab={instance.body} database={activeInstance.database}/>
+                <InstanceMain tab={instance.body} database={activeInstance.database} sidecar={activeInstance.sidecar}/>
             </Box>
         )
     }

@@ -10,17 +10,19 @@ import (
 // COMMON (WEB AND SERVER)
 
 type InstanceRequest struct {
-	Sidecar      sidecar.Sidecar `json:"sidecar" form:"sidecar"`
-	CredentialId *uuid.UUID      `json:"credentialId" form:"credentialId"`
-	Certs        *cert.Certs     `json:"certs" form:"certs"`
-	Body         any             `json:"body" form:"body"`
+	Sidecar      sidecar.Sidecar      `json:"sidecar" form:"sidecar"`
+	CredentialId *uuid.UUID           `json:"credentialId" form:"credentialId"`
+	Credentials  *sidecar.Credentials `json:"credentials,omitempty" form:"credentials"`
+	Certs        *cert.Certs          `json:"certs" form:"certs"`
+	Body         any                  `json:"body" form:"body"`
 }
 
 // SPECIFIC (SERVER)
 
 type InstanceAutoRequest struct {
-	Sidecars     []sidecar.Sidecar `json:"sidecars" form:"sidecars"`
-	CredentialId *uuid.UUID        `json:"credentialId" form:"credentialId"`
-	Certs        *cert.Certs       `json:"certs" form:"certs"`
-	Body         any               `json:"body" form:"body"`
+	Sidecars     []sidecar.Sidecar    `json:"sidecars" form:"sidecars"`
+	CredentialId *uuid.UUID           `json:"credentialId" form:"credentialId"`
+	Credentials  *sidecar.Credentials `json:"credentials,omitempty" form:"credentials"`
+	Certs        *cert.Certs          `json:"certs" form:"certs"`
+	Body         any                  `json:"body" form:"body"`
 }

@@ -32,6 +32,7 @@ const (
 type Instance struct {
 	State               string                       `json:"state"`
 	Role                Role                         `json:"role"`
+	DisplayRole         string                       `json:"displayRole,omitempty"`
 	Lag                 int64                        `json:"lag"`
 	PendingRestart      bool                         `json:"pendingRestart"`
 	Database            database.Database            `json:"database"`

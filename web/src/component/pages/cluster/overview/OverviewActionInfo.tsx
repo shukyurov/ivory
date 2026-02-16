@@ -4,7 +4,7 @@ import {CertType} from "../../../../api/cert/type"
 import {Cluster, Instance} from "../../../../api/cluster/type"
 import {PasswordType} from "../../../../api/password/type"
 import {SxPropsMap} from "../../../../app/type"
-import {CertOptions, CredentialOptions, getDetectionItems} from "../../../../app/utils"
+import {CertOptions, CredentialOptions, getDetectionItems, hasPatroniCredentials, hasPostgresCredentials} from "../../../../app/utils"
 import {InfoBox} from "../../../view/box/InfoBox"
 import {InfoBoxList} from "../../../view/box/InfoBoxList"
 import {InfoColorBoxList} from "../../../view/box/InfoColorBoxList"
@@ -23,8 +23,8 @@ export function OverviewActionInfo(props: Props) {
     const {mainInstance, cluster, detectBy} = props
 
     const infoItems = [
-        {...CredentialOptions[PasswordType.POSTGRES], active: !!cluster.credentials.postgresId},
-        {...CredentialOptions[PasswordType.PATRONI], active: !!cluster.credentials.patroniId},
+        {...CredentialOptions[PasswordType.POSTGRES], active: hasPostgresCredentials(cluster)},
+        {...CredentialOptions[PasswordType.PATRONI], active: hasPatroniCredentials(cluster)},
         {...CertOptions[CertType.CLIENT_CA], active: !!cluster.certs.clientCAId},
         {...CertOptions[CertType.CLIENT_CERT], active: !!cluster.certs.clientCertId},
         {...CertOptions[CertType.CLIENT_KEY], active: !!cluster.certs.clientKeyId}

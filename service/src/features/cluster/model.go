@@ -34,8 +34,10 @@ type ClusterTls struct {
 }
 
 type Credentials struct {
-	PatroniId  *uuid.UUID `json:"patroniId"`
-	PostgresId *uuid.UUID `json:"postgresId"`
+	PatroniId          *uuid.UUID `json:"patroniId"`
+	PostgresId         *uuid.UUID `json:"postgresId"`
+	PatroniConfigured  bool       `json:"patroniConfigured,omitempty"`
+	PostgresConfigured bool       `json:"postgresConfigured,omitempty"`
 }
 
 type ClusterOverview struct {

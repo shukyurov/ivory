@@ -23,7 +23,36 @@ import (
 	"ivory/src/storage/db"
 	"ivory/src/storage/env"
 	"ivory/src/storage/files"
+	"sort"
+	"strings"
 )
+
+type clusterTagsProvider struct {
+	clusterRepo *cluster.Repository
+}
+
+func (p *clusterTagsProvider) ListTags() ([]string, error) {
+	list, err := p.clusterRepo.List()
+	if err != nil {
+		return nil, err
+	}
+	tagMap := make(map[string]bool)
+	for _, c := range list {
+		for _, t := range c.Tags {
+			tag := strings.ToLower(strings.TrimSpace(t))
+			if tag == "" {
+				continue
+			}
+			tagMap[tag] = true
+		}
+	}
+	result := make([]string, 0, len(tagMap))
+	for key := range tagMap {
+		result = append(result, key)
+	}
+	sort.Strings(result)
+	return result, nil
+}
 
 type Context struct {
 	env              *env.AppEnv
@@ -62,7 +91,7 @@ func NewContext() *Context {
 	queryLogFiles := files.NewStorage("query", ".jsonl")
 
 	// REPOS
-	clusterRepo := cluster.NewRepository(clusterBucket)
+	clusterRepo := cluster.NewFileRepository(clusterBucket, appEnv.Config.ClustersFilePath)
 	bloatRepo := bloat.NewRepository(compactTableBucket, compactTableFiles)
 	certRepo := cert.NewRepository(certBucket, certFiles)
 	tagRepo := tag.NewRepository(tagBucket)
@@ -88,13 +117,13 @@ func NewContext() *Context {
 	passwordService := password.NewService(passwordRepo, secretService, encryptionService)
 	permissionService := permission.NewService(permissionRepo)
 	certService := cert.NewService(certRepo)
-	instanceService := instance.NewService(patroniClient, passwordService, certService)
-	tagService := tag.NewService(tagRepo)
+	instanceService := instance.NewService(patroniClient, passwordService, certService, clusterRepo)
+	tagService := tag.NewService(tagRepo, &clusterTagsProvider{clusterRepo: clusterRepo})
 	clusterService := cluster.NewService(clusterRepo, instanceService, tagService)
 	queryLogService := query.NewLogService(queryLogRepo)
 	queryService := query.NewService(queryRepo, queryLogService, secretService)
-	queryExecuteService := query.NewExecuteService(queryRepo, postgresClient, queryLogService, passwordService, certService)
-	bloatService := bloat.NewService(bloatRepo, passwordService)
+	queryExecuteService := query.NewExecuteService(queryRepo, postgresClient, queryLogService, passwordService, certService, clusterRepo)
+	bloatService := bloat.NewService(bloatRepo, passwordService, clusterRepo)
 	authService := auth.NewService(secretService, basicProvider, ldapProvider, oidcProvider, permissionService)
 	configService := config.NewService(configFiles, encryptionService, secretService, authService, permissionService, basicProvider, ldapProvider, oidcProvider)
 	managementService := management.NewService(

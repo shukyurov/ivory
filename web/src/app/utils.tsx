@@ -6,7 +6,7 @@ import {
     SecurityTwoTone, Shield, Storage, UploadFileOutlined,
 } from "@mui/icons-material"
 import {SxProps, Theme} from "@mui/material"
-import {blue, green, indigo, orange, purple, red} from "@mui/material/colors"
+import {blue, green, indigo, orange, purple, red, yellow} from "@mui/material/colors"
 import {materialDarkInit, materialLightInit} from "@uiw/codemirror-theme-material"
 import {AxiosError} from "axios"
 import dayjs from "dayjs"
@@ -17,7 +17,7 @@ import {Cluster, Instance} from "../api/cluster/type"
 import {InstanceRequest, Role, Sidecar, SidecarStatus} from "../api/instance/type"
 import {PasswordType} from "../api/password/type"
 import {PermissionStatus} from "../api/permission/type"
-import {ConnectionRequest, Database, QueryVariety} from "../api/postgres"
+import {ConnectionRequest, Database, QueryVariety, SidecarAddress} from "../api/postgres"
 import {EnumOptions, Links, Settings, SxPropsMap} from "./type"
 
 export const IvoryLinks: Links = {
@@ -31,7 +31,7 @@ export const IvoryLinks: Links = {
 
 export const InstanceColor: { [key in Role]: { label: "success" | "primary" | "error" | "warning", color: string } } = {
     leader: {label: "success", color: green[600]},
-    replica: {label: "primary", color: blue[500]},
+    replica: {label: "primary", color: yellow[700]},
     unknown: {label: "warning", color:  orange[500]},
 }
 
@@ -91,6 +91,7 @@ export const initialInstance = (domain: string): Instance => {
     return ({
         state: "-",
         role: "unknown",
+        displayRole: "unknown",
         lag: -1,
         pendingRestart: false,
         sidecar: getSidecar(domain),
@@ -98,6 +99,20 @@ export const initialInstance = (domain: string): Instance => {
         inCluster: true,
         inSidecar: false,
     })
+}
+
+export const getRoleDisplay = (instance?: {role?: Role, displayRole?: string}) => {
+    const role = instance?.displayRole ?? instance?.role ?? "unknown"
+    return role.replaceAll("_", " ")
+}
+
+export const getRoleColor = (instance?: {role?: Role, displayRole?: string}) => {
+    const role = instance?.role ?? "unknown"
+    if (role !== "replica") return InstanceColor[role]
+
+    const displayRole = getRoleDisplay(instance).trim().toLowerCase()
+    if (displayRole === "replica") return {label: "warning" as const, color: yellow[700]}
+    return {label: "primary" as const, color: blue[500]}
 }
 
 export const isSidecarEqual = (sidecar1?: Sidecar, sidecar2?: Sidecar): boolean => {
@@ -112,16 +127,24 @@ export const getDomains = (sidecars: Sidecar[]) => {
     return sidecars.map(value => getDomain(value))
 }
 
-export function getConnectionRequest(cluster: Cluster, db: Database): ConnectionRequest {
+export function getConnectionRequest(cluster: Cluster, db: Database, sidecar?: SidecarAddress): ConnectionRequest {
     const credentialId = cluster.credentials.postgresId
     const certs = cluster.tls.database ? cluster.certs : undefined
-    return {db, certs, credentialId}
+    return {cluster: cluster.name, sidecar, db, certs, credentialId}
 }
 
 export function getSidecarConnection(cluster: Cluster, sidecar: Sidecar): InstanceRequest {
     const credentialId = cluster.credentials.patroniId
     const certs = cluster.tls.sidecar ? cluster.certs : undefined
     return {sidecar, certs, credentialId}
+}
+
+export function hasPostgresCredentials(cluster: Cluster): boolean {
+    return !!cluster.credentials.postgresId || !!cluster.credentials.postgresConfigured
+}
+
+export function hasPatroniCredentials(cluster: Cluster): boolean {
+    return !!cluster.credentials.patroniId || !!cluster.credentials.patroniConfigured
 }
 
 export const getSidecar = (domain: string): Sidecar => {
@@ -137,10 +160,9 @@ export const getDetectionItems = (mainInstance?: Instance, detectBy?: Instance) 
     const detection = detectBy ? "manual" : "auto"
     const instance = detectBy ?? mainInstance
     const label = instance ? getDomain(instance.sidecar) : "none"
-    const role = instance?.role ?? "unknown"
     return [
         {title: "Detection", label: detection, bgColor: purple[400]},
-        {title: "Main Instance", label: label, bgColor: InstanceColor[role].color}
+        {title: "Main Instance", label: label, bgColor: getRoleColor(instance).color}
     ]
 }
 
@@ -212,4 +234,3 @@ export const SizeFormatter = {
     format: Intl.NumberFormat("en", {notation: "compact", style: "unit", unit: "byte", unitDisplay: "narrow"}),
     pretty: (size: number) => SizeFormatter.format.format(size)
 }
-

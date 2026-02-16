@@ -9,7 +9,7 @@ import {Permission} from "../../../../api/permission/type"
 import {Database, QueryType} from "../../../../api/postgres"
 import {useRouterQueryList} from "../../../../api/query/hook"
 import {SxPropsMap} from "../../../../app/type"
-import {getConnectionRequest} from "../../../../app/utils"
+import {getConnectionRequest, hasPostgresCredentials} from "../../../../app/utils"
 import {ErrorSmart} from "../../../view/box/ErrorSmart"
 import {LinearProgressStateful} from "../../../view/progress/LinearProgressStateful"
 import {AccessBox} from "../../../widgets/access/Access"
@@ -34,6 +34,7 @@ type Props = {
 
 export function OverviewBloat(props: Props) {
     const {cluster, instance} = props
+    const hasCredentials = hasPostgresCredentials(cluster)
     const [tab, setTab] = useState(ListBlock.JOB)
     const [target, setTarget] = useState<BloatTarget>()
 
@@ -67,7 +68,7 @@ export function OverviewBloat(props: Props) {
             case ListBlock.JOB:
                 return jobs.error ? <ErrorSmart error={jobs.error}/> : <OverviewBloatJob list={jobs.data} cluster={cluster.name} refetchList={jobs.refetch}/>
             case ListBlock.QUERY:
-                return <Query type={QueryType.BLOAT} connection={getConnectionRequest(cluster, db)}/>
+                return <Query type={QueryType.BLOAT} connection={getConnectionRequest(cluster, db, instance.sidecar)}/>
         }
     }
 
@@ -78,7 +79,7 @@ export function OverviewBloat(props: Props) {
                     <ToggleButton value={ListBlock.JOB} onClick={handleJobTab}>
                         Jobs
                     </ToggleButton>
-                    <ToggleButton value={ListBlock.QUERY} onClick={handleQueryTab} disabled={!cluster.credentials.postgresId}>
+                    <ToggleButton value={ListBlock.QUERY} onClick={handleQueryTab} disabled={!hasCredentials}>
                         Queries
                     </ToggleButton>
                 </ToggleButtonGroup>

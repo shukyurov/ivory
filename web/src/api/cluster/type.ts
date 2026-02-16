@@ -37,6 +37,8 @@ export interface ClusterTls {
 export interface Credentials {
     patroniId?: string,
     postgresId?: string,
+    patroniConfigured?: boolean,
+    postgresConfigured?: boolean,
 }
 
 
@@ -53,6 +55,7 @@ export interface InstanceOverview {
 export interface Instance {
     state: string,
     role: Role,
+    displayRole?: string,
     lag: number,
     pendingRestart: boolean,
     database: Database,

@@ -40,7 +40,7 @@ export function InstanceInfo(props: Props) {
                     Queries
                 </ToggleButton>
             </ToggleButtonGroup>
-            <InstanceInfoStatus role={instance.role}/>
+            <InstanceInfoStatus role={instance.role} displayRole={instance.displayRole}/>
             <Paper sx={SX.paper} variant={"outlined"}>
                 <InstanceInfoTable instance={instance}/>
             </Paper>
