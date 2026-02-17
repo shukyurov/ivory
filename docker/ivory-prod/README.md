@@ -39,11 +39,11 @@ doesn't know anything about your local machine network
 By default Ivory reads clusters from `data/config/clusters` on every request (no restart required).
 Each file with mask `*-cluster.json` is loaded and merged into one config in memory.
 
-Example file `data/config/clusters/ekf-cluster.json`:
+Example file `data/config/clusters/example-cluster.json`:
 
 ```json
 {
-  "name": "ekf",
+  "name": "example",
   "sidecars": [
     {"host": "172.22.0.15", "port": 8013},
     {"host": "172.22.0.16", "port": 8013}
