@@ -36,19 +36,31 @@ func (p *clusterTagsProvider) ListTags() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	tagMap := make(map[string]bool)
+	tagMap := make(map[string]string)
+	addTag := func(tag string) {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			return
+		}
+		normalizedTag := strings.ToLower(tag)
+		if _, ok := tagMap[normalizedTag]; !ok {
+			tagMap[normalizedTag] = tag
+		}
+	}
+
 	for _, c := range list {
+		environment, tenant, ok := strings.Cut(c.Name, "-")
+		if ok {
+			addTag(environment)
+			addTag(tenant)
+		}
 		for _, t := range c.Tags {
-			tag := strings.ToLower(strings.TrimSpace(t))
-			if tag == "" {
-				continue
-			}
-			tagMap[tag] = true
+			addTag(t)
 		}
 	}
 	result := make([]string, 0, len(tagMap))
-	for key := range tagMap {
-		result = append(result, key)
+	for _, value := range tagMap {
+		result = append(result, value)
 	}
 	sort.Strings(result)
 	return result, nil

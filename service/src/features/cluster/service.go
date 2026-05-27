@@ -3,6 +3,8 @@ package cluster
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"ivory/src/clients/sidecar"
 	"ivory/src/features/cert"
 	"ivory/src/features/instance"
@@ -11,6 +13,22 @@ import (
 
 var ErrClusterNameEmpty = errors.New("cluster name cannot be empty")
 var ErrClusterSidecarsEmpty = errors.New("cluster sidecars cannot be empty")
+
+var environmentTags = map[string]bool{
+	"dev":         true,
+	"develop":     true,
+	"development": true,
+	"prod":        true,
+	"production":  true,
+	"stage":       true,
+	"staging":     true,
+	"test":        true,
+	"testing":     true,
+	"qa":          true,
+	"uat":         true,
+	"preprod":     true,
+	"pre-prod":    true,
+}
 
 type Service struct {
 	clusterRepository *Repository
@@ -40,21 +58,48 @@ func (s *Service) ListByTag(tags []string) ([]Cluster, error) {
 		return nil, err
 	}
 
-	tagMap := make(map[string]bool)
+	environmentMap := make(map[string]bool)
+	tenantMap := make(map[string]bool)
 	for _, tag := range tags {
-		tagMap[tag] = true
+		normalizedTag := strings.ToLower(strings.TrimSpace(tag))
+		if normalizedTag == "" {
+			continue
+		}
+		if environmentTags[normalizedTag] {
+			environmentMap[normalizedTag] = true
+		} else {
+			tenantMap[normalizedTag] = true
+		}
 	}
 
 	filtered := make([]Cluster, 0)
 	for _, cluster := range list {
-		for _, clusterTag := range cluster.Tags {
-			if tagMap[clusterTag] {
-				filtered = append(filtered, cluster)
-				break
+		matchesEnvironment := len(environmentMap) == 0
+		matchesTenant := len(tenantMap) == 0
+
+		for _, clusterTag := range clusterFilterTags(cluster) {
+			normalizedClusterTag := strings.ToLower(strings.TrimSpace(clusterTag))
+			if environmentMap[normalizedClusterTag] {
+				matchesEnvironment = true
 			}
+			if tenantMap[normalizedClusterTag] {
+				matchesTenant = true
+			}
+		}
+		if matchesEnvironment && matchesTenant {
+			filtered = append(filtered, cluster)
 		}
 	}
 	return filtered, nil
+}
+
+func clusterFilterTags(cluster Cluster) []string {
+	tags := append([]string{}, cluster.Tags...)
+	environment, tenant, ok := strings.Cut(cluster.Name, "-")
+	if ok {
+		tags = append(tags, environment, tenant)
+	}
+	return tags
 }
 
 func (s *Service) ListByName(clusters []string) ([]Cluster, error) {

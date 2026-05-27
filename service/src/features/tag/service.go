@@ -39,9 +39,13 @@ func (s *Service) List() ([]string, error) {
 }
 
 func (s *Service) UpdateCluster(cluster string, tags []string) ([]string, error) {
-	var tagsLower []string
+	var normalizedTags []string
 	for _, tag := range tags {
-		tagsLower = append(tagsLower, strings.ToLower(tag))
+		normalizedTag := strings.TrimSpace(tag)
+		if normalizedTag == "" {
+			continue
+		}
+		normalizedTags = append(normalizedTags, normalizedTag)
 	}
 
 	tagMap, err := s.tagRepository.GetMap()
@@ -66,7 +70,7 @@ func (s *Service) UpdateCluster(cluster string, tags []string) ([]string, error)
 	}
 
 	// NOTE: add cluster to tags
-	for _, v := range tagsLower {
+	for _, v := range normalizedTags {
 		tagMap[v] = append(tagMap[v], cluster)
 	}
 
@@ -85,12 +89,11 @@ func (s *Service) UpdateCluster(cluster string, tags []string) ([]string, error)
 		}
 	}
 
-	return tagsLower, nil
+	return normalizedTags, nil
 }
 
 func (s *Service) Delete(tag string) error {
-	tagLower := strings.ToLower(tag)
-	return s.tagRepository.Delete(tagLower)
+	return s.tagRepository.Delete(tag)
 }
 
 func (s *Service) DeleteAll() error {
