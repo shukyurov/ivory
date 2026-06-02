@@ -17,6 +17,7 @@ import {Refresher} from "../../../widgets/refresher/Refresher"
 import {ListCreateAuto} from "./ListCreateAuto"
 import {ListRow} from "./ListRow"
 import {ListRowNew} from "./ListRowNew"
+import {getClusterPool} from "./ListTags"
 
 const SX: SxPropsMap = {
     box: {overflowY: "scroll"},
@@ -134,17 +135,25 @@ export function ListTable(props: Props) {
 
         const normalizedTags = tags.map(tag => tag.toLowerCase())
         const environmentFilters = normalizedTags.filter(tag => ENVIRONMENT_TAGS.has(tag))
-        const tenantFilters = normalizedTags.filter(tag => !ENVIRONMENT_TAGS.has(tag))
+        const poolFilters = normalizedTags.filter(isPoolTag)
+        const tenantFilters = normalizedTags.filter(tag => !ENVIRONMENT_TAGS.has(tag) && !isPoolTag(tag))
         const nameParts = cluster.name.split("-")
         const clusterEnvironment = nameParts[0]?.toLowerCase()
         const clusterTenant = nameParts.slice(1).join("-").toLowerCase()
+        const clusterPool = getClusterPool(cluster).toLowerCase()
         const clusterTags = new Set((cluster.tags ?? []).map(tag => tag.toLowerCase()))
 
         if (clusterEnvironment) clusterTags.add(clusterEnvironment)
         if (clusterTenant) clusterTags.add(clusterTenant)
+        if (clusterPool) clusterTags.add(clusterPool)
 
         const matchesEnvironment = environmentFilters.length === 0 || environmentFilters.some(tag => clusterTags.has(tag))
         const matchesTenant = tenantFilters.length === 0 || tenantFilters.some(tag => clusterTags.has(tag))
-        return matchesEnvironment && matchesTenant
+        const matchesPool = poolFilters.length === 0 || poolFilters.some(tag => clusterTags.has(tag))
+        return matchesEnvironment && matchesTenant && matchesPool
+    }
+
+    function isPoolTag(tag: string) {
+        return tag.includes(" / ")
     }
 }

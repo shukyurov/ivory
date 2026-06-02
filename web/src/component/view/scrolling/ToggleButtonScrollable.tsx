@@ -40,37 +40,43 @@ const SX: SxPropsMap = {
 
 type Props = {
     tags: string[],
+    poolTags?: string[],
     selected: string[],
     renderActions?: ReactElement<{sx?: SxProps<Theme>}>[],
     onUpdate: (tags: string[]) => void,
 }
 
 export function ToggleButtonScrollable(props: Props) {
-    const {tags, selected, onUpdate, renderActions} = props
-    const canonicalTagMap = new Map(tags.map(tag => [tag.toLowerCase(), tag]))
+    const {tags, poolTags = [], selected, onUpdate, renderActions} = props
+    const allTags = [...tags, ...poolTags]
+    const canonicalTagMap = new Map(allTags.map(tag => [tag.toLowerCase(), tag]))
     const canonicalSelected = selected.map(canonicalTag)
     const tagsSet = new Set(tags)
+    const poolTagsSet = new Set(poolTags)
     const [selectedSet, setSelectedSet] = useState(new Set(canonicalSelected))
     const [primaryAnchorEl, setPrimaryAnchorEl] = useState<HTMLElement | null>(null)
     const [secondaryAnchorEl, setSecondaryAnchorEl] = useState<HTMLElement | null>(null)
+    const [poolAnchorEl, setPoolAnchorEl] = useState<HTMLElement | null>(null)
 
     const isAll = selectedSet.has(ALL)
     const count = isAll ? "0" : selectedSet.size.toString()
     const primaryTags = tags.filter(isPrimaryTag)
     const secondaryTags = tags.filter(tag => !isPrimaryTag(tag))
     const removedPrimaryTags = canonicalSelected.filter(tag => !tagsSet.has(tag) && isPrimaryTag(tag))
-    const removedSecondaryTags = canonicalSelected.filter(tag => !tagsSet.has(tag) && !isPrimaryTag(tag))
+    const removedPoolTags = canonicalSelected.filter(tag => !poolTagsSet.has(tag) && isPoolTag(tag))
+    const removedSecondaryTags = canonicalSelected.filter(tag => !tagsSet.has(tag) && !isPrimaryTag(tag) && !isPoolTag(tag))
 
     useEffect(() => {
         setSelectedSet(new Set(canonicalSelected))
         if (!sameTags(selected, canonicalSelected)) onUpdate(canonicalSelected)
-    }, [selected, tags])
+    }, [selected, tags, poolTags])
 
     return (
         <Box sx={SX.root}>
             <Box sx={SX.selector}>
                 {renderDropdown("Environment", primaryTags, removedPrimaryTags, primaryAnchorEl, setPrimaryAnchorEl, true)}
-                {renderDropdown("Tenant", secondaryTags, removedSecondaryTags, secondaryAnchorEl, setSecondaryAnchorEl)}
+                {renderDropdown("Tenant", secondaryTags, removedSecondaryTags, secondaryAnchorEl, setSecondaryAnchorEl, true)}
+                {renderDropdown("Pool", poolTags, removedPoolTags, poolAnchorEl, setPoolAnchorEl, true)}
             </Box>
             {renderAfter()}
         </Box>
@@ -95,7 +101,7 @@ export function ToggleButtonScrollable(props: Props) {
                         sx={SX.button}
                         color={"secondary"}
                         size={"small"}
-                        variant={selectedList.length > 0 ? "contained" : "outlined"}
+                        variant={isDropdownAllSelected(selectedList) ? "outlined" : "contained"}
                         endIcon={<ArrowDropDownIcon fontSize={"small"}/>}
                         onClick={e => setAnchorEl(e.currentTarget)}
                     >
@@ -108,7 +114,7 @@ export function ToggleButtonScrollable(props: Props) {
                     onClose={() => setAnchorEl(null)}
                     slotProps={{paper: {sx: SX.menuPaper}}}
                 >
-                    {withAll ? renderMenuItem(ALL, isAll, handleClickAll) : null}
+                    {withAll ? renderMenuItem(ALL, isDropdownAllSelected(selectedList), handleClickAll) : null}
                     {list.map(tag => renderMenuItem(tag, selectedSet.has(tag), handleClick))}
                     {removedList.map(tag => renderRemovedMenuItem(tag, handleClick))}
                 </Menu>
@@ -142,7 +148,7 @@ export function ToggleButtonScrollable(props: Props) {
     }
 
     function renderButtonLabel(label: string, list: string[], withAll: boolean) {
-        if (withAll && isAll) return `${label}: ${ALL}`
+        if (withAll && isDropdownAllSelected(list)) return `${label}: ${ALL}`
         if (list.length === 0) return label
         const value = list.join(", ")
         return <Box component={"span"} sx={SX.label}>{label}: {value}</Box>
@@ -211,10 +217,19 @@ export function ToggleButtonScrollable(props: Props) {
         onUpdate([...tmp])
         setPrimaryAnchorEl(null)
         setSecondaryAnchorEl(null)
+        setPoolAnchorEl(null)
     }
 
     function isPrimaryTag(tag: string) {
         return PRIMARY_TAGS.has(tag.toLowerCase())
+    }
+
+    function isPoolTag(tag: string) {
+        return tag.includes(" / ")
+    }
+
+    function isDropdownAllSelected(list: string[]) {
+        return isAll || list.length === 0
     }
 
     function canonicalTag(tag: string) {
