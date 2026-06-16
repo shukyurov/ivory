@@ -17,7 +17,9 @@ func NewRouter(clusterService *Service) *Router {
 }
 
 func (r *Router) GetClusterList(context *gin.Context) {
-	tags := context.Request.URL.Query()["tags[]"]
+	query := context.Request.URL.Query()
+	tags := query["tags[]"]
+	tags = append(tags, query["tags"]...)
 
 	var list []Cluster
 	var err error

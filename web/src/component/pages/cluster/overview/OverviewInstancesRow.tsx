@@ -8,7 +8,8 @@ import {SxPropsMap} from "../../../../app/type"
 import {
     DateTimeFormatter,
     getSidecarConnection, initialInstance,
-    InstanceColor,
+    getRoleColor,
+    getRoleDisplay,
     SizeFormatter,
     SxPropsFormatter,
 } from "../../../../app/utils"
@@ -41,7 +42,9 @@ type Props = {
 
 export function OverviewInstancesRow(props: Props) {
     const {instance: tmpInstance, cluster, candidates, error = false, name, checked} = props
-    const {role, sidecar, database, state, lag, inSidecar, pendingRestart, inCluster, scheduledRestart, scheduledSwitchover, tags} = tmpInstance ?? initialInstance(name)
+    const {role, displayRole, sidecar, database, state, lag, inSidecar, pendingRestart, inCluster, scheduledRestart, scheduledSwitchover, tags} = tmpInstance ?? initialInstance(name)
+    const roleLabel = getRoleDisplay({role, displayRole})
+    const roleColor = getRoleColor({role, displayRole})
 
     const {setInstance} = useStoreAction
     const request = getSidecarConnection(cluster, sidecar)
@@ -55,7 +58,7 @@ export function OverviewInstancesRow(props: Props) {
         >
             <TableCell><Radio checked={checked} size={"small"}/></TableCell>
             <TableCell align={"center"}>{renderWarning(inSidecar, inCluster)}</TableCell>
-            <TableCell sx={{color: InstanceColor[role].color}}>{role.toUpperCase()}</TableCell>
+            <TableCell sx={{color: roleColor.color}}>{roleLabel}</TableCell>
             <TableCell sx={SX.nowrap}>
                 <Tooltip title={name} placement={"top-start"}>
                     <Box sx={SX.nowrap}>{name}</Box>

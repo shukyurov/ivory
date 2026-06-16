@@ -17,12 +17,29 @@ import {Refresher} from "../../../widgets/refresher/Refresher"
 import {ListCreateAuto} from "./ListCreateAuto"
 import {ListRow} from "./ListRow"
 import {ListRowNew} from "./ListRowNew"
+import {getClusterPool} from "./ListTags"
 
 const SX: SxPropsMap = {
     box: {overflowY: "scroll"},
     table: {"tr:last-child td": {border: 0}, "tr td, th": {padding: "5px 10px"}},
     refresh: {padding: "0px 5px"},
 }
+
+const ENVIRONMENT_TAGS = new Set([
+    "dev",
+    "develop",
+    "development",
+    "prod",
+    "production",
+    "stage",
+    "staging",
+    "test",
+    "testing",
+    "qa",
+    "uat",
+    "preprod",
+    "pre-prod",
+])
 
 type Props = {
     list: Cluster[],
@@ -33,11 +50,15 @@ type Props = {
 export function ListTable(props: Props) {
     const activeCluster = useStore(s => s.activeCluster)
     const search = useStore(s => s.searchCluster)
+    const activeTags = useStore(s => s.activeTags)
     const {list, fetching, pending} = props
     const [showNewElement, setShowNewElement] = useState(false)
     const [editNode, setEditNode] = useState("")
 
-    const rows = useMemo(() => list.filter((c) => c.name.includes(search)), [list, search])
+    const rows = useMemo(
+        () => list.filter((c) => c.name.includes(search) && matchesTagFilter(c, activeTags)),
+        [list, search, activeTags],
+    )
 
     return (
         <Box sx={SX.box} className={scroll.tiny} maxHeight={activeCluster ? "25vh" : "60vh"}>
@@ -107,5 +128,32 @@ export function ListTable(props: Props) {
                 </TableCell>
             </TableRow>
         )
+    }
+
+    function matchesTagFilter(cluster: Cluster, tags: string[]) {
+        if (tags.includes("ALL")) return true
+
+        const normalizedTags = tags.map(tag => tag.toLowerCase())
+        const environmentFilters = normalizedTags.filter(tag => ENVIRONMENT_TAGS.has(tag))
+        const poolFilters = normalizedTags.filter(isPoolTag)
+        const tenantFilters = normalizedTags.filter(tag => !ENVIRONMENT_TAGS.has(tag) && !isPoolTag(tag))
+        const nameParts = cluster.name.split("-")
+        const clusterEnvironment = nameParts[0]?.toLowerCase()
+        const clusterTenant = nameParts.slice(1).join("-").toLowerCase()
+        const clusterPool = getClusterPool(cluster).toLowerCase()
+        const clusterTags = new Set((cluster.tags ?? []).map(tag => tag.toLowerCase()))
+
+        if (clusterEnvironment) clusterTags.add(clusterEnvironment)
+        if (clusterTenant) clusterTags.add(clusterTenant)
+        if (clusterPool) clusterTags.add(clusterPool)
+
+        const matchesEnvironment = environmentFilters.length === 0 || environmentFilters.some(tag => clusterTags.has(tag))
+        const matchesTenant = tenantFilters.length === 0 || tenantFilters.some(tag => clusterTags.has(tag))
+        const matchesPool = poolFilters.length === 0 || poolFilters.some(tag => clusterTags.has(tag))
+        return matchesEnvironment && matchesTenant && matchesPool
+    }
+
+    function isPoolTag(tag: string) {
+        return tag.includes(" / ")
     }
 }

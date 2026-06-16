@@ -8,7 +8,8 @@ import {ColorsMap, SxPropsMap} from "../../../../app/type"
 import {
     getDetectionItems,
     getDomains,
-    getSidecars, InstanceColor,
+    getRoleColor,
+    getSidecars,
     SxPropsFormatter,
 } from "../../../../app/utils"
 import {useStore, useStoreAction} from "../../../../provider/StoreProvider"
@@ -133,7 +134,7 @@ export function ListRow(props: Props) {
     function handleMemoColors() {
         return Object.entries(instances).reduce(
             (map, [domain, instance]) => {
-                map[domain] = InstanceColor[instance?.role ?? "unknown"].label
+                map[domain] = getRoleColor(instance).label
                 return map
             },
             {} as ColorsMap

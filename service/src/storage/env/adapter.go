@@ -15,12 +15,13 @@ type Version struct {
 }
 
 type Config struct {
-	UrlAddress      string
-	UrlPath         string
-	StaticFilesPath string
-	CertFilePath    string
-	CertKeyFilePath string
-	TlsEnabled      bool
+	UrlAddress       string
+	UrlPath          string
+	StaticFilesPath  string
+	ClustersFilePath string
+	CertFilePath     string
+	CertKeyFilePath  string
+	TlsEnabled       bool
 }
 
 type AppEnv struct {
@@ -64,6 +65,10 @@ func NewAppEnv() *AppEnv {
 		staticFilesPath = val
 		updateBaseUrlTag(staticFilesPath, urlPath)
 	}
+	clustersFilePath := "data/config/clusters"
+	if val, ok := os.LookupEnv("IVORY_CLUSTERS_FILE_PATH"); ok && val != "" {
+		clustersFilePath = val
+	}
 
 	tag := "v0.0.0"
 	if val, ok := os.LookupEnv("IVORY_VERSION_TAG"); ok {
@@ -80,6 +85,7 @@ func NewAppEnv() *AppEnv {
 	slog.Info("ENV", "IVORY_URL_ADDRESS", urlAddress)
 	slog.Info("ENV", "IVORY_URL_PATH", urlPath)
 	slog.Info("ENV", "IVORY_STATIC_FILES_PATH", staticFilesPath)
+	slog.Info("ENV", "IVORY_CLUSTERS_FILE_PATH", clustersFilePath)
 	slog.Info("ENV", "IVORY_CERT_FILE_PATH", certFilePath)
 	slog.Info("ENV", "IVORY_CERT_KEY_FILE_PATH", certKeyFilePath)
 	slog.Info("ENV", "IVORY_VERSION_TAG", tag)
@@ -88,12 +94,13 @@ func NewAppEnv() *AppEnv {
 
 	return &AppEnv{
 		Config: Config{
-			UrlAddress:      urlAddress,
-			UrlPath:         urlPath,
-			StaticFilesPath: staticFilesPath,
-			CertFilePath:    certFilePath,
-			CertKeyFilePath: certKeyFilePath,
-			TlsEnabled:      tlsEnabled,
+			UrlAddress:       urlAddress,
+			UrlPath:          urlPath,
+			StaticFilesPath:  staticFilesPath,
+			ClustersFilePath: clustersFilePath,
+			CertFilePath:     certFilePath,
+			CertKeyFilePath:  certKeyFilePath,
+			TlsEnabled:       tlsEnabled,
 		},
 		Version: Version{
 			Tag:    tag,

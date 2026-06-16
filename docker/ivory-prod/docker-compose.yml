@@ -1,0 +1,12 @@
+services:
+  ivory:
+    image: ivory
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: ivory
+    ports:
+      - "80:80"
+    volumes:
+      - ./data:/opt/ivory/data
+    restart: unless-stopped

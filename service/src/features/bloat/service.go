@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"ivory/src/clients/database"
 	. "ivory/src/features/bloat/job"
 	"ivory/src/features/password"
 	"os/exec"
@@ -16,6 +17,10 @@ import (
 var ErrJobIsActive = errors.New("job is active")
 var ErrNoSuchActiveJob = errors.New("there is no such active job")
 
+type CredentialsResolver interface {
+	ResolvePostgresByCluster(clusterName string) (*database.Credentials, bool)
+}
+
 type Service struct {
 	start           chan uuid.UUID
 	stop            chan uuid.UUID
@@ -23,11 +28,13 @@ type Service struct {
 	mutex           *sync.Mutex
 	bloatRepository *Repository
 	passwordService *password.Service
+	resolver        CredentialsResolver
 }
 
 func NewService(
 	bloatRepository *Repository,
 	passwordService *password.Service,
+	resolver CredentialsResolver,
 ) *Service {
 	worker := &Service{
 		start:           make(chan uuid.UUID),
@@ -36,6 +43,7 @@ func NewService(
 		mutex:           &sync.Mutex{},
 		bloatRepository: bloatRepository,
 		passwordService: passwordService,
+		resolver:        resolver,
 	}
 
 	// run channel subscribers
@@ -62,7 +70,7 @@ func (w *Service) Get(uuid uuid.UUID) (Bloat, error) {
 	return w.bloatRepository.Get(uuid)
 }
 
-func (w *Service) Start(credentialId uuid.UUID, cluster string, args []string) (*Bloat, error) {
+func (w *Service) Start(credentialId *uuid.UUID, cluster string, args []string) (*Bloat, error) {
 	compactTable, err := w.bloatRepository.Create(credentialId, cluster, args)
 	if err != nil {
 		return nil, err
@@ -160,9 +168,24 @@ func (w *Service) runner() {
 			w.jobStatusHandler(element, RUNNING, nil)
 
 			// Get password
-			credential, errCred := w.passwordService.GetDecrypted(model.CredentialId)
-			if errCred != nil {
-				w.jobStatusHandler(element, FAILED, fmt.Errorf("password error: %w", errCred))
+			var credential *database.Credentials
+			if model.CredentialId != uuid.Nil {
+				credentialById, errCred := w.passwordService.GetDecrypted(model.CredentialId)
+				if errCred != nil {
+					w.jobStatusHandler(element, FAILED, fmt.Errorf("password error: %w", errCred))
+					return
+				}
+				credential = &database.Credentials{Username: credentialById.Username, Password: credentialById.Password}
+			} else if w.resolver != nil {
+				credentialFromFile, ok := w.resolver.ResolvePostgresByCluster(model.Cluster)
+				if !ok {
+					w.jobStatusHandler(element, FAILED, fmt.Errorf("password error: postgres credentials are not configured for cluster %s", model.Cluster))
+					return
+				}
+				credential = credentialFromFile
+			}
+			if credential == nil {
+				w.jobStatusHandler(element, FAILED, fmt.Errorf("password error: credentials are not configured"))
 				return
 			}
 			credentialArgs := []string{

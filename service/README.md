@@ -104,6 +104,7 @@ func TestService_Method(t *testing.T) {
 - `IVORY_URL_ADDRESS` - change tcp network address, `default: :8080` (if `GIN_MODE=release` it either `:80` or `:443` when cert files are set)
 - `IVORY_URL_PATH` - change sub path under which Ivory serve its routes, `default: /`
 - `IVORY_STATIC_FILES_PATH` - add static files to host, `default: empty`
+- `IVORY_CLUSTERS_FILE_PATH` - path to clusters config (folder with `*-cluster.json` or single JSON file), `default: data/config/clusters`
 - `IVORY_CERT_FILE_PATH` - provide your sever cert to enable tls, `default: empty`
 - `IVORY_CERT_KEY_FILE_PATH` - provide your server key to enable tls, `default: empty`
 - `IVORY_VERSION_TAG` - change version tag, `default: v0.0.0`
@@ -115,4 +116,3 @@ This app is build by:
 
 - [Bolt](https://github.com/boltdb/bolt) - Embedded key/value database
 - [Gin](https://github.com/gin-gonic/gin) - Web framework
-

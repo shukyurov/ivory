@@ -4,12 +4,20 @@ import (
 	"strings"
 )
 
-type Service struct {
-	tagRepository *Repository
+type TagsProvider interface {
+	ListTags() ([]string, error)
 }
 
-func NewService(tagRepository *Repository) *Service {
-	return &Service{tagRepository: tagRepository}
+type Service struct {
+	tagRepository *Repository
+	tagsProvider  TagsProvider
+}
+
+func NewService(tagRepository *Repository, tagsProvider TagsProvider) *Service {
+	return &Service{
+		tagRepository: tagRepository,
+		tagsProvider:  tagsProvider,
+	}
 }
 
 func (s *Service) Get(tag string) ([]string, error) {
@@ -21,13 +29,23 @@ func (s *Service) GetMap() (map[string][]string, error) {
 }
 
 func (s *Service) List() ([]string, error) {
+	if s.tagsProvider != nil {
+		tags, err := s.tagsProvider.ListTags()
+		if err == nil {
+			return tags, nil
+		}
+	}
 	return s.tagRepository.List()
 }
 
 func (s *Service) UpdateCluster(cluster string, tags []string) ([]string, error) {
-	var tagsLower []string
+	var normalizedTags []string
 	for _, tag := range tags {
-		tagsLower = append(tagsLower, strings.ToLower(tag))
+		normalizedTag := strings.TrimSpace(tag)
+		if normalizedTag == "" {
+			continue
+		}
+		normalizedTags = append(normalizedTags, normalizedTag)
 	}
 
 	tagMap, err := s.tagRepository.GetMap()
@@ -52,7 +70,7 @@ func (s *Service) UpdateCluster(cluster string, tags []string) ([]string, error)
 	}
 
 	// NOTE: add cluster to tags
-	for _, v := range tagsLower {
+	for _, v := range normalizedTags {
 		tagMap[v] = append(tagMap[v], cluster)
 	}
 
@@ -71,12 +89,11 @@ func (s *Service) UpdateCluster(cluster string, tags []string) ([]string, error)
 		}
 	}
 
-	return tagsLower, nil
+	return normalizedTags, nil
 }
 
 func (s *Service) Delete(tag string) error {
-	tagLower := strings.ToLower(tag)
-	return s.tagRepository.Delete(tagLower)
+	return s.tagRepository.Delete(tag)
 }
 
 func (s *Service) DeleteAll() error {

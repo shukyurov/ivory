@@ -9,21 +9,28 @@ import (
 	"ivory/src/features/password"
 )
 
+type CredentialsResolver interface {
+	ResolvePatroniBySidecar(sidecar sidecar.Sidecar) (*sidecar.Credentials, bool)
+}
+
 type Service struct {
 	sidecarClient   sidecar.Client
 	passwordService *password.Service
 	certService     *cert.Service
+	resolver        CredentialsResolver
 }
 
 func NewService(
 	sidecarClient sidecar.Client,
 	passwordService *password.Service,
 	certService *cert.Service,
+	resolver CredentialsResolver,
 ) *Service {
 	return &Service{
 		sidecarClient:   sidecarClient,
 		passwordService: passwordService,
 		certService:     certService,
+		resolver:        resolver,
 	}
 }
 
@@ -35,8 +42,8 @@ func (s *Service) OverviewAuto(request InstanceAutoRequest) ([]sidecar.Instance,
 			return nil, 0, nil, err
 		}
 	}
-	var cred *sidecar.Credentials
-	if request.CredentialId != nil {
+	cred := request.Credentials
+	if cred == nil && request.CredentialId != nil {
 		pass, err := s.passwordService.GetDecrypted(*request.CredentialId)
 		if err != nil {
 			return nil, 0, nil, err
@@ -167,12 +174,18 @@ func (s *Service) mapRequest(instance InstanceRequest) (sidecar.Request, error) 
 			return request, err
 		}
 	}
-	if instance.CredentialId != nil {
+	if instance.Credentials != nil {
+		request.Credentials = instance.Credentials
+	} else if instance.CredentialId != nil {
 		pass, err := s.passwordService.GetDecrypted(*instance.CredentialId)
 		if err != nil {
 			return request, err
 		}
 		request.Credentials = &sidecar.Credentials{Username: pass.Username, Password: pass.Password}
+	} else if s.resolver != nil {
+		if credentials, ok := s.resolver.ResolvePatroniBySidecar(instance.Sidecar); ok {
+			request.Credentials = credentials
+		}
 	}
 	return request, nil
 }

@@ -437,6 +437,58 @@ func TestSidecarInstance_Mapping(t *testing.T) {
 	})
 }
 
+func TestClient_mapRole(t *testing.T) {
+	client := NewClient(&sidecar.Gateway{})
+
+	testCases := []struct {
+		name     string
+		role     string
+		expected sidecar.Role
+	}{
+		{name: "leader", role: "leader", expected: sidecar.Leader},
+		{name: "master", role: "master", expected: sidecar.Leader},
+		{name: "standby leader", role: "standby_leader", expected: sidecar.Leader},
+		{name: "replica", role: "replica", expected: sidecar.Replica},
+		{name: "sync standby", role: "sync_standby", expected: sidecar.Replica},
+		{name: "quorum standby", role: "quorum_standby", expected: sidecar.Replica},
+		{name: "uppercase sync standby", role: "SYNC_STANDBY", expected: sidecar.Replica},
+		{name: "unknown role", role: "something_else", expected: sidecar.Unknown},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := client.mapRole(tc.role)
+			if actual != tc.expected {
+				t.Errorf("Expected role %q, got %q", tc.expected, actual)
+			}
+		})
+	}
+}
+
+func TestClient_mapDisplayRole(t *testing.T) {
+	client := NewClient(&sidecar.Gateway{})
+
+	testCases := []struct {
+		name     string
+		role     string
+		expected string
+	}{
+		{name: "leader", role: "leader", expected: "leader"},
+		{name: "sync standby", role: "sync_standby", expected: "sync standby"},
+		{name: "uppercase sync standby", role: "SYNC_STANDBY", expected: "sync standby"},
+		{name: "empty role", role: "", expected: "unknown"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := client.mapDisplayRole(tc.role)
+			if actual != tc.expected {
+				t.Errorf("Expected display role %q, got %q", tc.expected, actual)
+			}
+		})
+	}
+}
+
 // Helper functions
 func strPtr(s string) *string {
 	return &s

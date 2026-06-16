@@ -3,6 +3,8 @@ package cluster
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"ivory/src/clients/sidecar"
 	"ivory/src/features/cert"
 	"ivory/src/features/instance"
@@ -11,6 +13,22 @@ import (
 
 var ErrClusterNameEmpty = errors.New("cluster name cannot be empty")
 var ErrClusterSidecarsEmpty = errors.New("cluster sidecars cannot be empty")
+
+var environmentTags = map[string]bool{
+	"dev":         true,
+	"develop":     true,
+	"development": true,
+	"prod":        true,
+	"production":  true,
+	"stage":       true,
+	"staging":     true,
+	"test":        true,
+	"testing":     true,
+	"qa":          true,
+	"uat":         true,
+	"preprod":     true,
+	"pre-prod":    true,
+}
 
 type Service struct {
 	clusterRepository *Repository
@@ -35,24 +53,53 @@ func (s *Service) List() ([]Cluster, error) {
 }
 
 func (s *Service) ListByTag(tags []string) ([]Cluster, error) {
-	listMap := make(map[string]bool)
-	for _, t := range tags {
-		// NOTE: we shouldn't check the error here, we want to return an empty array if there is no such tag
-		clusters, _ := s.tagService.Get(t)
+	list, err := s.List()
+	if err != nil {
+		return nil, err
+	}
 
-		for _, c := range clusters {
-			if !listMap[c] {
-				listMap[c] = true
-			}
+	environmentMap := make(map[string]bool)
+	tenantMap := make(map[string]bool)
+	for _, tag := range tags {
+		normalizedTag := strings.ToLower(strings.TrimSpace(tag))
+		if normalizedTag == "" {
+			continue
+		}
+		if environmentTags[normalizedTag] {
+			environmentMap[normalizedTag] = true
+		} else {
+			tenantMap[normalizedTag] = true
 		}
 	}
 
-	listName := make([]string, 0)
-	for k := range listMap {
-		listName = append(listName, k)
-	}
+	filtered := make([]Cluster, 0)
+	for _, cluster := range list {
+		matchesEnvironment := len(environmentMap) == 0
+		matchesTenant := len(tenantMap) == 0
 
-	return s.ListByName(listName)
+		for _, clusterTag := range clusterFilterTags(cluster) {
+			normalizedClusterTag := strings.ToLower(strings.TrimSpace(clusterTag))
+			if environmentMap[normalizedClusterTag] {
+				matchesEnvironment = true
+			}
+			if tenantMap[normalizedClusterTag] {
+				matchesTenant = true
+			}
+		}
+		if matchesEnvironment && matchesTenant {
+			filtered = append(filtered, cluster)
+		}
+	}
+	return filtered, nil
+}
+
+func clusterFilterTags(cluster Cluster) []string {
+	tags := append([]string{}, cluster.Tags...)
+	environment, tenant, ok := strings.Cut(cluster.Name, "-")
+	if ok {
+		tags = append(tags, environment, tenant)
+	}
+	return tags
 }
 
 func (s *Service) ListByName(clusters []string) ([]Cluster, error) {
@@ -88,9 +135,9 @@ func (s *Service) Overview(name string, side *sidecar.Sidecar) (*ClusterOverview
 	var instances []sidecar.Instance
 	var err error
 	if side == nil {
-		instances, detectedBy, err = s.getOverviewAuto(cluster.Sidecars, cluster.ClusterOptions)
+		instances, detectedBy, err = s.getOverviewAuto(name, cluster.Sidecars, cluster.ClusterOptions)
 	} else {
-		instances, err = s.getOverview(*side, cluster.ClusterOptions)
+		instances, err = s.getOverview(name, *side, cluster.ClusterOptions)
 	}
 	if err != nil {
 		return nil, err
@@ -123,7 +170,7 @@ func (s *Service) Overview(name string, side *sidecar.Sidecar) (*ClusterOverview
 }
 
 func (s *Service) CreateAuto(cluster ClusterAuto) (Cluster, error) {
-	overview, errOver := s.getOverview(cluster.Instance, cluster.ClusterOptions)
+	overview, errOver := s.getOverview(cluster.Name, cluster.Instance, cluster.ClusterOptions)
 	if errOver != nil {
 		return Cluster{}, errOver
 	}
@@ -158,7 +205,7 @@ func (s *Service) FixAuto(name string) (*Cluster, error) {
 	if clusterError != nil {
 		return nil, clusterError
 	}
-	overview, _, err := s.getOverviewAuto(cluster.Sidecars, cluster.ClusterOptions)
+	overview, _, err := s.getOverviewAuto(cluster.Name, cluster.Sidecars, cluster.ClusterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -181,22 +228,25 @@ func (s *Service) FixAuto(name string) (*Cluster, error) {
 	return &model, s.clusterRepository.Update(model)
 }
 
-func (s *Service) getOverview(sidecar sidecar.Sidecar, cluster ClusterOptions) ([]sidecar.Instance, error) {
+func (s *Service) getOverview(clusterName string, sidecarInfo sidecar.Sidecar, cluster ClusterOptions) ([]sidecar.Instance, error) {
 	var certs *cert.Certs
 	// NOTE: we want to rewrite `nil` only if tls is enabled
 	if cluster.Tls.Sidecar {
 		certs = &cluster.Certs
 	}
 	request := instance.InstanceRequest{
-		Sidecar:      sidecar,
+		Sidecar:      sidecarInfo,
 		CredentialId: cluster.Credentials.PatroniId,
 		Certs:        certs,
+	}
+	if credentials, ok := s.clusterRepository.ResolvePatroniByCluster(clusterName); ok {
+		request.Credentials = credentials
 	}
 	overview, _, errOver := s.instanceService.Overview(request)
 	return overview, errOver
 }
 
-func (s *Service) getOverviewAuto(sidecars []sidecar.Sidecar, cluster ClusterOptions) ([]sidecar.Instance, *sidecar.Sidecar, error) {
+func (s *Service) getOverviewAuto(clusterName string, sidecars []sidecar.Sidecar, cluster ClusterOptions) ([]sidecar.Instance, *sidecar.Sidecar, error) {
 	var certs *cert.Certs
 	// NOTE: we want to rewrite `nil` only if tls is enabled
 	if cluster.Tls.Sidecar {
@@ -206,6 +256,9 @@ func (s *Service) getOverviewAuto(sidecars []sidecar.Sidecar, cluster ClusterOpt
 		Sidecars:     sidecars,
 		CredentialId: cluster.Credentials.PatroniId,
 		Certs:        certs,
+	}
+	if credentials, ok := s.clusterRepository.ResolvePatroniByCluster(clusterName); ok {
+		request.Credentials = credentials
 	}
 	overview, _, detectedBy, errOver := s.instanceService.OverviewAuto(request)
 	if errOver != nil {

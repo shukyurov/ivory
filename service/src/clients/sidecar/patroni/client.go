@@ -50,6 +50,7 @@ func (p *Client) Overview(request sidecar.Request) ([]sidecar.Instance, int, err
 		overview = append(overview, sidecar.Instance{
 			State:               patroniInstance.State,
 			Role:                p.mapRole(patroniInstance.Role),
+			DisplayRole:         p.mapDisplayRole(patroniInstance.Role),
 			Lag:                 p.mapLag(patroniInstance.Lag),
 			PendingRestart:      patroniInstance.PendingRestart,
 			Database:            database.Database{Host: patroniInstance.Host, Port: patroniInstance.Port},
@@ -97,11 +98,21 @@ func (p *Client) mapSwitchover(host string, switchover *PatroniScheduledSwitchov
 	return scheduledSwitchover
 }
 
+func (p *Client) mapDisplayRole(role string) string {
+	if role == "" {
+		return string(sidecar.Unknown)
+	}
+	normalized := strings.ToLower(role)
+	return strings.ReplaceAll(normalized, "_", " ")
+}
+
 func (p *Client) mapRole(role string) sidecar.Role {
-	switch role {
+	switch strings.ToLower(role) {
 	case "leader", "master":
 		return sidecar.Leader
-	case "replica":
+	case "standby_leader":
+		return sidecar.Leader
+	case "replica", "sync_standby", "quorum_standby":
 		return sidecar.Replica
 	default:
 		return sidecar.Unknown

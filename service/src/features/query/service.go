@@ -26,8 +26,14 @@ type ExecuteService struct {
 	logService      *LogService
 	passwordService *password.Service
 	certService     *cert.Service
+	resolver        CredentialsResolver
 
 	chartMap map[database.QueryChartType]database.Query
+}
+
+type CredentialsResolver interface {
+	ResolvePostgresBySidecarAddress(sidecar database.SidecarAddress) (*database.Credentials, bool)
+	ResolvePostgresByDatabase(db database.Database) (*database.Credentials, bool)
 }
 
 func NewExecuteService(
@@ -36,6 +42,7 @@ func NewExecuteService(
 	logService *LogService,
 	passwordService *password.Service,
 	certService *cert.Service,
+	resolver CredentialsResolver,
 ) *ExecuteService {
 	return &ExecuteService{
 		queryRepository: queryRepository,
@@ -43,6 +50,7 @@ func NewExecuteService(
 		logService:      logService,
 		passwordService: passwordService,
 		certService:     certService,
+		resolver:        resolver,
 
 		chartMap: postgres.CreateChartsMap(),
 	}
@@ -156,6 +164,17 @@ func (s *ExecuteService) mapContext(queryCtx QueryContext) (database.Context, er
 			return ctx, ErrPasswordProblems
 		}
 		con.Credentials = &database.Credentials{Username: cred.Username, Password: cred.Password}
+	} else if s.resolver != nil {
+		if queryCtx.Connection.Sidecar != nil {
+			if credentials, ok := s.resolver.ResolvePostgresBySidecarAddress(*queryCtx.Connection.Sidecar); ok {
+				con.Credentials = credentials
+			}
+		}
+		if con.Credentials == nil {
+			if credentials, ok := s.resolver.ResolvePostgresByDatabase(queryCtx.Connection.Db); ok {
+				con.Credentials = credentials
+			}
+		}
 	}
 	if queryCtx.Connection.Certs != nil {
 		errTls := s.certService.EnrichTLSConfig(&con.TlsConfig, queryCtx.Connection.Certs)

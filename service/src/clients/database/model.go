@@ -16,10 +16,17 @@ type Database struct {
 	Schema *string `json:"schema"`
 }
 
+type SidecarAddress struct {
+	Host string `json:"host"`
+	Port int    `json:"port"`
+}
+
 type ConnectionRequest struct {
-	Db           Database    `json:"db"`
-	Certs        *cert.Certs `json:"certs"`
-	CredentialId *uuid.UUID  `json:"credentialId"`
+	Cluster      *string         `json:"cluster,omitempty"`
+	Sidecar      *SidecarAddress `json:"sidecar,omitempty"`
+	Db           Database        `json:"db"`
+	Certs        *cert.Certs     `json:"certs"`
+	CredentialId *uuid.UUID      `json:"credentialId"`
 }
 
 type QueryOptions struct {

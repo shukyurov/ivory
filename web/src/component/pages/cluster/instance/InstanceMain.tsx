@@ -1,10 +1,10 @@
 import {Box, Link} from "@mui/material"
 
-import {InstanceTab, InstanceTabType} from "../../../../api/instance/type"
+import {InstanceTab, InstanceTabType, Sidecar} from "../../../../api/instance/type"
 import {ConnectionRequest, Database} from "../../../../api/postgres"
 import {useRouterQueryDatabase, useRouterQuerySchemas} from "../../../../api/query/hook"
 import {SxPropsMap} from "../../../../app/type"
-import {getConnectionRequest} from "../../../../app/utils"
+import {getConnectionRequest, hasPostgresCredentials} from "../../../../app/utils"
 import {useStore, useStoreAction} from "../../../../provider/StoreProvider"
 import {AutocompleteFetch} from "../../../view/autocomplete/AutocompleteFetch"
 import {Chart} from "../../../widgets/chart/Chart"
@@ -48,10 +48,11 @@ const Tabs: {[key in InstanceTabType]: InstanceTab} = {
 type Props = {
     tab: InstanceTabType,
     database: Database,
+    sidecar?: Sidecar,
 }
 
 export function InstanceMain(props: Props) {
-    const {tab, database} = props
+    const {tab, database, sidecar} = props
     const activeCluster = useStore(s => s.activeCluster)
     const {dbName, dbSchema} = useStore(s => s.instance)
     const {setDbName, setDbSchema} = useStoreAction
@@ -60,9 +61,9 @@ export function InstanceMain(props: Props) {
     const {cluster} = activeCluster
     const {label, info, body} = Tabs[tab]
 
-    const credentialId = cluster.credentials.postgresId
+    const hasCredentials = hasPostgresCredentials(cluster)
     const db = {...database, name: dbName, schema: dbSchema} as Database
-    const connection = getConnectionRequest(cluster, db)
+    const connection = getConnectionRequest(cluster, db, sidecar)
 
     return (
         <Box sx={SX.main}>
@@ -72,13 +73,13 @@ export function InstanceMain(props: Props) {
     )
 
     function renderBody() {
-        if (!credentialId) return <ClusterNoPostgresPassword/>
+        if (!hasCredentials) return <ClusterNoPostgresPassword/>
         if (database.host === "-") return <NoDatabaseError/>
         return body(connection)
     }
 
     function renderActions() {
-        if (!credentialId) return null
+        if (!hasCredentials) return null
         return (
             <Box sx={SX.inputs}>
                 <AutocompleteFetch

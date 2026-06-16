@@ -6,7 +6,7 @@ import {BloatOptions, BloatTarget} from "../../../../api/bloat/type"
 import {Cluster, Instance} from "../../../../api/cluster/type"
 import {useRouterQueryDatabase, useRouterQuerySchemas, useRouterQueryTables} from "../../../../api/query/hook"
 import {SxPropsMap} from "../../../../app/type"
-import {getConnectionRequest} from "../../../../app/utils"
+import {getConnectionRequest, hasPostgresCredentials} from "../../../../app/utils"
 import {AutocompleteFetch} from "../../../view/autocomplete/AutocompleteFetch"
 import {ClusterNoLeaderError, ClusterNoPostgresPassword} from "./OverviewError"
 
@@ -28,12 +28,13 @@ export function OverviewBloatJobForm(props: Props) {
     const [options, setOptions] = useState<BloatOptions>({force: false, noReindex: false, routineVacuum: false, initialReindex: false, noInitialVacuum: false})
 
     const start = useRouterBloatStart(cluster.name)
+    const hasCredentials = hasPostgresCredentials(cluster)
 
     if (instance.role !== "leader") return <ClusterNoLeaderError/>
-    if (!cluster.credentials.postgresId) return <ClusterNoPostgresPassword/>
+    if (!hasCredentials) return <ClusterNoPostgresPassword/>
 
     const db = {...instance.database, name: target?.database}
-    const connection = getConnectionRequest(cluster, db)
+    const connection = getConnectionRequest(cluster, db, instance.sidecar)
     return (
         <Box sx={SX.form}>
             <AutocompleteFetch
@@ -111,11 +112,12 @@ export function OverviewBloatJobForm(props: Props) {
 
     function handleRun() {
         const credentialId = cluster.credentials.postgresId
-        if (instance && credentialId) {
+        if (instance && hasCredentials) {
             const {database: {host, port}} = instance
             onClick()
             start.mutate({
                 connection: {
+                    sidecar: instance.sidecar,
                     db: {host, port, name: target?.database, schema: target?.schema},
                     credentialId,
                 },

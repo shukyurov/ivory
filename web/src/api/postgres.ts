@@ -9,7 +9,14 @@ export interface Database {
     schema?: string,
 }
 
+export interface SidecarAddress {
+    host: string,
+    port: number,
+}
+
 export interface ConnectionRequest {
+    cluster?: string,
+    sidecar?: SidecarAddress,
     db: Database,
     certs?: Certs,
     credentialId?: string,
